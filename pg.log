@@ -1,0 +1,3 @@
+2025-12-14 16:27:28.903 KST [29425] FATAL:  shmat(id=327681, addr=0x0, flags=0x0) failed: Operation not permitted
+2025-12-14 16:27:28.903 KST [29425] LOG:  shmctl(327681, 0, 0) failed: Operation not permitted
+2025-12-14 16:27:28.903 KST [29425] LOG:  database system is shut down

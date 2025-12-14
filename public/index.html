@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>파일 확장자 차단</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --accent: #34d399;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --danger: #f87171;
+      --border: #1f2937;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: radial-gradient(circle at 20% 20%, rgba(52, 211, 153, 0.06), transparent 25%), 
+                  radial-gradient(circle at 80% 0%, rgba(56, 189, 248, 0.06), transparent 30%),
+                  var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+    }
+    header {
+      max-width: 1100px;
+      margin: 0 auto 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    h1 {
+      margin: 0;
+      font-size: 26px;
+      letter-spacing: -0.5px;
+    }
+    .card {
+      background: linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0));
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.25);
+    }
+    .card h2 {
+      margin: 0 0 10px;
+      font-size: 18px;
+    }
+    .card p {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .fixed-list label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      margin-bottom: 8px;
+      background: rgba(255,255,255,0.02);
+    }
+    .fixed-list input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--accent);
+    }
+    form {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    input[type="text"] {
+      flex: 1 1 180px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0b1222;
+      color: var(--text);
+    }
+    button {
+      padding: 10px 14px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      background: var(--accent);
+      color: #042f2e;
+      transition: transform 0.08s ease, box-shadow 0.2s ease;
+    }
+    button:active { transform: translateY(1px); }
+    .list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: grid;
+      gap: 8px;
+    }
+    .pill {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+    }
+    .pill small { color: var(--muted); }
+    .pill button {
+      background: transparent;
+      color: var(--danger);
+      border: 1px solid rgba(248, 113, 113, 0.5);
+      padding: 6px 10px;
+    }
+    .hint {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      padding: 12px 14px;
+      background: #111827;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>파일 확장자 차단</h1>
+      <div class="hint">고정 확장자 상태 저장 · 커스텀 확장자 최대 200개</div>
+    </div>
+    <div class="hint">백엔드: Express + PostgreSQL</div>
+  </header>
+
+  <div class="container">
+    <section class="card">
+      <h2>고정 확장자</h2>
+      <p>자주 차단하는 확장자. 체크/해제 시 DB에 즉시 반영됩니다.</p>
+      <div id="fixedList" class="fixed-list"></div>
+    </section>
+
+    <section class="card">
+      <h2>커스텀 확장자</h2>
+      <p>직접 확장자를 추가하거나 삭제할 수 있습니다.</p>
+      <form id="customForm">
+        <input type="text" id="customInput" placeholder="예: sh" autocomplete="off" maxlength="20" />
+        <button type="submit">추가</button>
+      </form>
+      <div class="hint">중복 허용 안 함 · 최대 200개 · 영문 소문자/숫자/-/_</div>
+      <ul id="customList" class="list"></ul>
+    </section>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    const fixedListEl = document.getElementById('fixedList');
+    const customListEl = document.getElementById('customList');
+    const customForm = document.getElementById('customForm');
+    const customInput = document.getElementById('customInput');
+    const toast = document.getElementById('toast');
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2000);
+    }
+
+    async function fetchJson(url, options) {
+      const res = await fetch(url, {
+        headers: { 'Content-Type': 'application/json' },
+        ...options,
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || '요청에 실패했습니다.');
+      }
+      return res.status === 204 ? null : res.json();
+    }
+
+    async function loadFixed() {
+      const items = await fetchJson('/api/fixed');
+      fixedListEl.innerHTML = '';
+      items.forEach((item) => {
+        const label = document.createElement('label');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = item.is_blocked;
+        checkbox.addEventListener('change', async () => {
+          try {
+            await fetchJson(`/api/fixed/${encodeURIComponent(item.ext)}`, {
+              method: 'PUT',
+              body: JSON.stringify({ blocked: checkbox.checked }),
+            });
+            showToast(`${item.ext} ${checkbox.checked ? '차단' : '허용'}`);
+          } catch (err) {
+            checkbox.checked = !checkbox.checked;
+            showToast(err.message);
+          }
+        });
+        const text = document.createElement('span');
+        text.textContent = `.${item.ext}`;
+        label.appendChild(checkbox);
+        label.appendChild(text);
+        fixedListEl.appendChild(label);
+      });
+    }
+
+    async function loadCustom() {
+      const items = await fetchJson('/api/custom');
+      customListEl.innerHTML = '';
+      items.forEach((item) => {
+        const li = document.createElement('li');
+        li.className = 'pill';
+        const left = document.createElement('div');
+        left.innerHTML = `<strong>.${item.ext}</strong><div class="hint">${new Date(item.created_at).toLocaleString()}</div>`;
+        const removeBtn = document.createElement('button');
+        removeBtn.textContent = '삭제';
+        removeBtn.addEventListener('click', async () => {
+          try {
+            await fetchJson(`/api/custom/${encodeURIComponent(item.ext)}`, { method: 'DELETE' });
+            showToast(`${item.ext} 삭제 완료`);
+            await loadCustom();
+          } catch (err) {
+            showToast(err.message);
+          }
+        });
+        li.appendChild(left);
+        li.appendChild(removeBtn);
+        customListEl.appendChild(li);
+      });
+    }
+
+    customForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const ext = customInput.value.trim();
+      if (!ext) {
+        showToast('확장자를 입력해주세요.');
+        return;
+      }
+      try {
+        await fetchJson('/api/custom', {
+          method: 'POST',
+          body: JSON.stringify({ ext }),
+        });
+        customInput.value = '';
+        showToast('추가 완료');
+        await loadCustom();
+      } catch (err) {
+        showToast(err.message);
+      }
+    });
+
+    (async function init() {
+      try {
+        await loadFixed();
+        await loadCustom();
+      } catch (err) {
+        showToast(err.message);
+      }
+    })();
+  </script>
+</body>
+</html>
